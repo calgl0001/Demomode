@@ -1,0 +1,169 @@
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MainEvent = ReplicatedStorage:WaitForChild("MainEvent")
+local StarterGui = game:GetService("StarterGui")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local currentServerId = game.JobId
+local placeId = 2788229376
+
+-- Create GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.ResetOnSpawn = false
+local mainFrame = Instance.new("Frame")
+local titleLabel = Instance.new("TextLabel")
+local autoReportButton = Instance.new("TextButton")
+local serverhopButton = Instance.new("TextButton")
+local madeByLabel = Instance.new("TextLabel")
+
+screenGui.Parent = game.CoreGui
+mainFrame.Parent = screenGui
+mainFrame.BackgroundColor3 = Color3.new(0, 0, 0)
+mainFrame.Position = UDim2.new(0.25, 0, 0.25, 0)
+mainFrame.Size = UDim2.new(0, 300, 0, 200)
+mainFrame.Active = true
+mainFrame.Draggable = true
+
+titleLabel.Parent = mainFrame
+titleLabel.Text = "Demomode Auto Report"
+titleLabel.Font = Enum.Font.LuckiestGuy
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.TextStrokeTransparency = 0
+titleLabel.TextStrokeColor3 = Color3.new(1, 1, 1)
+titleLabel.Size = UDim2.new(1, 0, 0, 50)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+
+autoReportButton.Parent = mainFrame
+autoReportButton.Text = "Auto Report"
+autoReportButton.Font = Enum.Font.LuckiestGuy
+autoReportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoReportButton.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
+autoReportButton.TextStrokeTransparency = 0
+autoReportButton.TextStrokeColor3 = Color3.new(1, 1, 1)
+autoReportButton.Size = UDim2.new(1, 0, 0, 50)
+autoReportButton.Position = UDim2.new(0, 0, 0, 50)
+
+serverhopButton.Parent = mainFrame
+serverhopButton.Text = "Serverhop"
+serverhopButton.Font = Enum.Font.LuckiestGuy
+serverhopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+serverhopButton.BackgroundColor3 = Color3.new(0.5, 0.5, 0.5)
+serverhopButton.TextStrokeTransparency = 0
+serverhopButton.TextStrokeColor3 = Color3.new(1, 1, 1)
+serverhopButton.Size = UDim2.new(1, 0, 0, 50)
+serverhopButton.Position = UDim2.new(0, 0, 0, 110)
+
+madeByLabel.Parent = mainFrame
+madeByLabel.Text = "This was made by calgl#0001"
+madeByLabel.Font = Enum.Font.LuckiestGuy
+madeByLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+madeByLabel.TextStrokeTransparency = 0
+madeByLabel.TextStrokeColor3 = Color3.new(1, 1, 1)
+madeByLabel.Size = UDim2.new(1, 0, 0, 50)
+madeByLabel.Position = UDim2.new(0, 0, 0, 170)
+madeByLabel.Active = true
+madeByLabel.Draggable = true
+
+local function applyRainbowEffect(textLabel)
+    while true do
+        for i = 0, 1, 0.01 do
+            textLabel.TextColor3 = Color3.fromHSV(i, 1, 1)
+            wait(0.05)
+        end
+    end
+end
+
+spawn(function() applyRainbowEffect(titleLabel) end)
+spawn(function() applyRainbowEffect(autoReportButton) end)
+spawn(function() applyRainbowEffect(serverhopButton) end)
+spawn(function() applyRainbowEffect(madeByLabel) end)
+
+local function createNotification(title, text)
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = 5
+    })
+end
+
+local function reportPlayer(player)
+    local args = {
+        [1] = "REPORT_PLAYER",
+        [2] = player,
+        [3] = "Exploiting"
+    }
+
+    for _ = 1, 2 do
+        MainEvent:FireServer(unpack(args))
+        wait(1)
+    end
+    
+    createNotification("Reported", "Reported: " .. player.Name)
+end
+
+local function reportAllPlayers()
+    local players = Players:GetPlayers()
+
+    for _, player in ipairs(players) do
+        if player ~= Players.LocalPlayer then
+            reportPlayer(player)
+            wait(2)
+        end
+    end
+
+    createNotification("Finished", "All players have been reported.")
+end
+
+local function sendNotification(title, text, duration)
+    StarterGui:SetCore("SendNotification", {
+        Title = title;
+        Text = text;
+        Duration = duration;
+    })
+end
+
+local function getServers(cursor)
+    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+    if cursor then
+        url = url .. "&cursor=" .. cursor
+    end
+    local response = HttpService:JSONDecode(game:HttpGet(url))
+    return response
+end
+
+local function serverHop()
+    sendNotification("Serverhopping...", "Searching for a new server.", 5)
+    local servers = getServers()
+    local foundServer = false
+    
+    while not foundServer do
+        for _, server in pairs(servers.data) do
+            if server.id ~= currentServerId and server.playing < server.maxPlayers then
+                TeleportService:TeleportToPlaceInstance(placeId, server.id)
+                foundServer = true
+                break
+            end
+        end
+
+        if servers.nextPageCursor and not foundServer then
+            servers = getServers(servers.nextPageCursor)
+        else
+            break
+        end
+    end
+
+    if not foundServer then
+        sendNotification("Server Not Found", "Retrying in 10 seconds.", 5)
+        wait(10)
+        serverHop()
+    end
+end
+
+autoReportButton.MouseButton1Click:Connect(function()
+    reportAllPlayers()
+end)
+
+serverhopButton.MouseButton1Click:Connect(function()
+    serverHop()
+end)
